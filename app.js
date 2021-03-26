@@ -12,6 +12,46 @@ const vars = {
     }
 }
 
+const keysArray = ['W', 'A', 'S', 'D', 'E'];
+
+
+const setUpKeys = (keysArray) => {
+    const parsedControls = ['UP', 'LEFT', 'DOWN', 'RIGHT', 'FIRE'];
+    const keys = {};
+    keysArray.forEach((ele, index) => {
+        Object.defineProperty(keys, ele.charCodeAt(0), {
+            value: parsedControls[index],
+            enumerable: true
+        })
+    })
+    return keys;
+}   
+
+const createKeysStatusObject = (keys) => {
+    const keysStatus = {};
+    const parsedControls = ['UP', 'LEFT', 'DOWN', 'RIGHT', 'FIRE'];
+    // console.log(Object.values(keys))
+    Object.values(keys).forEach((value, index) => {
+        keysStatus[value] = false;
+    })
+    return keysStatus;
+}
+
+const keyStatus = (keys) => {
+    const key = keys;
+    let status = createKeysStatusObject(keys);
+
+    return {
+        keyPressed(e) {
+            status[keys[e.keyCode]] = true;
+        },
+
+        keyReleased(e) {
+            status[keys[e.keyCode]] = false;
+        },
+    }
+}
+
 const createCurvedLines = (vectors, scene, name, points = 20) => {
     const catmullRomSpline = BABYLON.Curve3.CreateCatmullRomSpline(vectors, points, false);
     const curvedLine = BABYLON.Mesh.CreateLines(name, catmullRomSpline.getPoints(), scene);
@@ -286,6 +326,14 @@ const engine = new BABYLON.Engine(canvas, true);
 
 const scene = createScene(engine, canvas);
 
+const newKeys = setUpKeys(keysArray);
+console.log(newKeys);
+const keysStatus = keyStatus(newKeys);
+console.log(keysStatus);
 engine.runRenderLoop(() => {
     scene.render();
 })
+
+document.addEventListener('keydown', keysStatus.keyPressed);
+
+document.addEventListener('keyup', keysStatus.keyReleased);
