@@ -29,8 +29,6 @@ const setUpKeys = (keysArray) => {
 
 const createKeysStatusObject = (keys) => {
     const keysStatus = {};
-    const parsedControls = ['UP', 'LEFT', 'DOWN', 'RIGHT', 'FIRE'];
-    // console.log(Object.values(keys))
     Object.values(keys).forEach((value, index) => {
         keysStatus[value] = false;
     })
@@ -49,7 +47,28 @@ const keyStatus = (keys) => {
         keyReleased(e) {
             status[keys[e.keyCode]] = false;
         },
+        status
     }
+}
+
+const moveUpdate = (vehicle, controls) => {
+    if (controls.UP) {
+        vehicle.position = vehicle.position.add(vehicle.frontVector.multiplyByFloats(vehicle.speed, vehicle.speed, vehicle.speed))
+    }
+
+    if (controls.DOWN) {
+        vehicle.position = vehicle.position.add(vehicle.frontVector.multiplyByFloats(-1 * vehicle.speed, -1 * vehicle.speed, -1 * vehicle.speed))
+    }
+
+    if (controls.LEFT && controls.UP) {
+            vehicle.rotation.y -= 0.02;
+            vehicle.frontVector = new BABYLON.Vector3(Math.sin(vehicle.rotation.y), 0, Math.cos(vehicle.rotation.y))
+    }
+
+    if (controls.RIGHT && controls.UP) {
+        vehicle.rotation.y += 0.02;
+        vehicle.frontVector = new BABYLON.Vector3(Math.sin(vehicle.rotation.y), 0, Math.cos(vehicle.rotation.y))
+}
 }
 
 const createCurvedLines = (vectors, scene, name, points = 20) => {
@@ -93,7 +112,7 @@ const createPath = (catmull, shiftedCatmull, scene) => {
         pathArray: [catmull.getPoints(), shiftedCatmull.getPoints()]
     }, scene);
     ribbon.material = mat;
-    ribbon.position.y = 0.1;
+    ribbon.position.y = 0.2;
 
     return ribbon;
 }
@@ -123,7 +142,7 @@ const createPaths = (number, scene, options) => {
         })
         let curvedLine1 = createCurvedLines(vectors, scene, 'catmul1', options.catmullPoints);
         let curvedLine2 = createCurvedLines(vectors, scene, 'catmul2', options.catmullPoints);
-        shiftCatmull(curvedLine2, 10, scene);
+        shiftCatmull(curvedLine2, options.shift, scene);
         let pathOutline = createPath(curvedLine1, curvedLine2, scene);
 
         paths.push(pathOutline);
@@ -258,14 +277,18 @@ const generateRandomBigObjects = (groundWidth, groundHeight, scene) => {
 
 const createVehicle = (scene) => {
     const vehicle = new BABYLON.MeshBuilder.CreateBox('vehicle', {
-        height: 2,
+        height: 1,
         depth: 6,
         width: 6
     }, scene);
     const vehicleMaterial = new BABYLON.StandardMaterial('vehicleMaterial', scene);
     vehicleMaterial.diffuseColor = new BABYLON.Color3(0, 1, 0);
     vehicle.material = vehicleMaterial;
-    vehicle.position = new BABYLON.Vector3(0, 0.1, -990);
+    vehicle.position = new BABYLON.Vector3(0, 0.1, -19990);
+    vehicle.frontVector = new BABYLON.Vector3(0, 0, 1);
+    vehicle.speed = 20;
+
+    return vehicle;s
 }
 
 const createUI = () => {
@@ -297,26 +320,39 @@ const createGround = (width, height) => {
     return ground;
 }
 
+const createFollowCamera = (target, scene) => {
+    const camera = new BABYLON.FollowCamera('tankFollowCamera', target.position, scene, target);
+    camera.radius = 200; //how far the object to follow
+    camera.heightOffset = 100; //how hight above the object to place camera
+    camera.rotationOffset = 180; //the viewing angle
+    camera.cameraAcceleration = 0.05; //how fast to move camera
+    camera.maxCameraSpeed = 100;
+    return camera;
+}
+
 const createScene = (engine, canvas) => {
     const scene = new BABYLON.Scene(engine);
     const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 1000, new BABYLON.Vector3(0, 0, -500), scene);
     camera.attachControl(canvas, true);
     const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-    const ground = createGround(400, 2000);
+    const ground = createGround(1000, 40000);
     const UI = createUI();
     const button = createButton(UI, ground);
     
 
     const paths = createPaths(2, scene, {
         points: 10,
-        groundWidth: 400,
-        groundHeight: 2000,
-        shift: 10,
+        groundWidth: 1000,
+        groundHeight: 40000,
+        shift: 50,
         catmullPoints: 100
     });
  
-    generateRandomBigObjects(400, 2000, scene);
+    generateRandomBigObjects(800, 40000, scene);
     const vehicle = createVehicle(scene);
+    console.log(vehicle.position)
+    const followCamera = createFollowCamera(vehicle, scene);
+    scene.activeCamera = followCamera;
 
     return scene;
 }
@@ -329,8 +365,10 @@ const scene = createScene(engine, canvas);
 const newKeys = setUpKeys(keysArray);
 console.log(newKeys);
 const keysStatus = keyStatus(newKeys);
+const vehicle = scene.getMeshByName('vehicle');
 console.log(keysStatus);
 engine.runRenderLoop(() => {
+    moveUpdate(vehicle, keysStatus.status);
     scene.render();
 })
 
